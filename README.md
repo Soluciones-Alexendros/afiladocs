@@ -16,11 +16,11 @@ Contratos: [AGENTS.md](AGENTS.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
 [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ·
 [DECISIONS.md](DECISIONS.md).
 
-|             |                                                                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Estado**  | P0 — frontal 500 por env Supabase incompleta ([issue #59](https://github.com/Soluciones-Alexendros/saas-afiladocs/issues/59), [PRODUCCION-P0.md](PRODUCCION-P0.md)) |
-| **Dominio** | [afiladocs.com](https://afiladocs.com)                                                                                                                              |
-| **Stack**   | Next.js 15 · React 19 · TypeScript 5.8 · Tailwind v4 · Prisma 7 · Stripe · Supabase · DocuSeal · n8n                                                                |
+|             |                                                                                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Estado**  | Operativo — `/`, `/tienda` y `/api/health` en 200 (sondeo 2026-10-25). [Issue #59](https://github.com/Soluciones-Alexendros/saas-afiladocs/issues/59) cerrada el 2026-09-26. Historial del incidente: [PRODUCCION-P0.md](PRODUCCION-P0.md) |
+| **Dominio** | [afiladocs.com](https://afiladocs.com)                                                                                                                                                                                                     |
+| **Stack**   | Next.js 16 · React 19 · TypeScript 5.8 · Tailwind v4 · Prisma 7 · Stripe · Supabase · DocuSeal · n8n                                                                                                                                       |
 
 ---
 
@@ -58,13 +58,13 @@ El edge middleware (`middleware.ts` → `createServerClient`) exige **ambas** en
 
 Obligatorias en Vercel **Production** para que el frontal no muera en edge:
 
-| Variable                        | Rol                                                                                             |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | URL del proyecto **Marketplace** (`*.supabase.co`). `supabase.afiladocs.com` está descatalogado |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima (pública; RLS). **Ausente en prod el 2026-09-23 — issue #59**                     |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Server-only (Storage / ops). No `NEXT_PUBLIC_*`                                                 |
-| `DATABASE_URL`                  | Pooler Prisma (runtime)                                                                         |
-| `DIRECT_URL`                    | Conexión directa (migraciones)                                                                  |
+| Variable                        | Rol                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | URL del proyecto **Marketplace** (`*.supabase.co`). `supabase.afiladocs.com` está descatalogado                                                        |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima (pública; RLS). Incidente de ausencia en prod cerrado con [issue #59](https://github.com/Soluciones-Alexendros/saas-afiladocs/issues/59) |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Server-only (Storage / ops). No `NEXT_PUBLIC_*`                                                                                                        |
+| `DATABASE_URL`                  | Pooler Prisma (runtime)                                                                                                                                |
+| `DIRECT_URL`                    | Conexión directa (migraciones)                                                                                                                         |
 
 Path canónico: **Vercel Marketplace Free** linkado al proyecto `afiladocs`. El código **no inventa** estas claves; las inyecta el Marketplace al linkar. No hay VPS / self-hosted.
 
