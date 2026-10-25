@@ -45,6 +45,19 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    # Placeholders (no secretos): postinstall `prisma generate` exige
+    # DIRECT_URL/DATABASE_URL. Mismos valores que ci.yml.
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
+      NEXT_PUBLIC_SITE_URL: https://afiladocs.com
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      RESEND_API_KEY: re_placeholder
+      CRON_SECRET: placeholder
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -80,7 +93,6 @@ jobs:
       - name: Install dependencies (pnpm)
         if: steps.lockfile.outputs.manager == 'pnpm'
         run: pnpm install --frozen-lockfile
-
       - name: Native audit (pnpm)
         if: steps.lockfile.outputs.manager == 'pnpm'
         run: pnpm audit --prod --audit-level=high
