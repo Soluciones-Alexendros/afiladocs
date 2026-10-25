@@ -103,9 +103,39 @@ jobs:
             cargo audit
           fi
 
+      # Binario osv-scanner v1.9.0 (no flag --severity en esta versión).
+      # Fallamos solo si hay HIGH/CRITICAL en database_specific.severity.
       - name: OSV-Scanner (high/critical only)
-        uses: google/osv-scanner-action/osv-scanner-action@19ec1116569a47416e11a45848722b1af31a857b # v1.9.0
-        with:
-          scan-args: |-
-            --lockfile=${{ steps.lockfile.outputs.lockfile }}
-            --severity=high
+        run: |
+          set -euo pipefail
+          curl -sSfL -o osv-scanner https://github.com/google/osv-scanner/releases/download/v1.9.0/osv-scanner_linux_amd64
+          echo "d9c1deedc23372a25049458e1e2f2bb9ad4098e2e2038118b9fec42f28f93ffb  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          set +e
+          ./osv-scanner --lockfile="${{ steps.lockfile.outputs.lockfile }}" --format=json --output=osv-results.json
+          osv_exit=$?
+          set -e
+          if [[ ! -f osv-results.json ]]; then
+            echo "::error::OSV-Scanner no generó osv-results.json (exit ${osv_exit})"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          import sys
+          data = json.load(open("osv-results.json", encoding="utf-8"))
+          bad = []
+          for result in data.get("results", []):
+              for pkg in result.get("packages", []):
+                  name = (pkg.get("package") or {}).get("name", "?")
+                  version = (pkg.get("package") or {}).get("version", "?")
+                  for vuln in pkg.get("vulnerabilities", []):
+                      sev = (vuln.get("database_specific") or {}).get("severity")
+                      if sev in ("HIGH", "CRITICAL"):
+                          bad.append(f"{sev} {vuln.get('id')} {name}@{version}")
+          if bad:
+              print("OSV high/critical findings:")
+              for line in bad:
+                  print(f"  - {line}")
+              sys.exit(1)
+          print("OSV: 0 high/critical (medium/low ignored by gate)")
+          PY
