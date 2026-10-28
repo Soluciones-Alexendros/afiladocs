@@ -117,3 +117,20 @@ docs/           architecture/, guides/, guias/, runbooks/
 - Jobs `quality`, `test`, `build` y `smoke` verdes
 - Docs canónicos actualizados si cambia el contrato
 - Sin secretos en el diff
+
+## Learned User Preferences
+
+- Renovate es el único bot de dependencias; Dependabot solo para alertas (no añadir `dependabot.yml`).
+- No cambiar Settings de GitHub, Vercel, DNS ni cuentas; dejarlos como tarea explícita para Alejandro.
+- No alterar la protección de `main`; mergear con el método que permita la ruleset actual (historial lineal → squash/rebase, no forzar merge commit).
+- Un PR por tema; abrir como draft cuando salga del flujo de commit; Conventional Commits en español.
+- Precios Stripe LIVE y firma de QA jurídica son tareas humanas: no incluirlas en PRs de deps/docs; dejar nota en la descripción.
+
+## Learned Workspace Facts
+
+- Repo GitHub `Soluciones-Alexendros/saas-afiladocs`; proyecto Vercel `afiladocs`; producción `https://afiladocs.com`.
+- `main` exige historial lineal (`required_linear_history`); merge commits no están permitidos hasta que Alejandro cambie Settings.
+- Al tocar CI, `renovate.json`, `SECURITY.md` o `CODEOWNERS`, alinear con `Soluciones-Alexendros/repo-standard`.
+- Fallos Vercel Preview `Resource provisioning failed` / `BUILD_FAILED` a ~0,5 s sin logs de compilación suelen ser rate limit de builds del team, no fallo del código Next.
+- Jobs CI con `pnpm install`/`postinstall` necesitan placeholders `DATABASE_URL`/`DIRECT_URL` si el entorno no inyecta secretos (Prisma `generate` en postinstall).
+- DocuSeal sigue en pausa operativa respecto al go-live; el bloqueo de tienda LIVE sigue siendo poblar Stripe/DocuSeal vía ops humano.
