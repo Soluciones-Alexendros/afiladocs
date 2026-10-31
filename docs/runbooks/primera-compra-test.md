@@ -65,4 +65,4 @@ Precios de referencia:
 - [A] QA jurídica con firma humana de los 3 drafts (`notes-legal.md` + `legal_reviewed_by/at` en manifest).
 - [A] Templates DocuSeal (UI) para NDA-001 y ARR-VIV-001 (`fill_and_sign`); POL-001 es `fill_only`.
 - [A] Alta de productos en Stripe **LIVE** + `audit-catalog` en READY + activación vía `/ops/productos`.
-- Operador ALIGNUX: link Marketplace + redeploy si aún falta al ejecutar este runbook.
+- Link Marketplace + redeploy si aún falta al ejecutar este runbook.
