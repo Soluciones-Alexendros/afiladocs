@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { serverEnv } from "@/lib/env";
+import { publicEnv, serverEnv } from "@/lib/env";
 import {
   checkoutRateLimit,
   getClientIp,
@@ -19,10 +19,37 @@ const LineItemSchema = z.object({
   quantity: z.number().int().min(1).max(10),
 });
 
+/** Solo orígenes del sitio (evita open-redirect en success/cancel de Stripe). */
+function isSiteOwnedUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const site = new URL(publicEnv.siteUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    const allowedHostnames = new Set([
+      site.hostname,
+      "afiladocs.com",
+      "www.afiladocs.com",
+      "afiladocs.vercel.app",
+    ]);
+    if (!allowedHostnames.has(url.hostname)) return false;
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      return true;
+    }
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const SiteUrlSchema = z
+  .string()
+  .url()
+  .refine(isSiteOwnedUrl, { message: "URL fuera del origen del sitio" });
+
 const CheckoutBodySchema = z.object({
   items: z.array(LineItemSchema).min(1).max(20),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
+  successUrl: SiteUrlSchema,
+  cancelUrl: SiteUrlSchema,
 });
 
 type LineItem = z.infer<typeof LineItemSchema>;
