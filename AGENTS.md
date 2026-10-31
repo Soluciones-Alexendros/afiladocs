@@ -114,6 +114,7 @@ docs/           architecture/, guides/, guias/, runbooks/
 ## Definition of Done
 
 - Criterios de la traza cumplidos
-- Jobs `quality`, `test`, `build` y `smoke` verdes
+- Check único `ci-gate` verde (agrega `quality`, `test`, `build`, `smoke`,
+  `security`, `secrets` y `sca`)
 - Docs canónicos actualizados si cambia el contrato
 - Sin secretos en el diff

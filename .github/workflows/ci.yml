@@ -1,18 +1,20 @@
 name: CI
 
 on:
-  push:
-    branches: [main, staging]
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  push:
     branches: [main]
+  schedule:
+    # SCA + secretos semanal (UTC); mismos jobs que en PR.
+    - cron: "17 5 * * 1"
 
 # Cancela runs anteriores de la misma rama/PR cuando llega un push nuevo.
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Runner: ubuntu-latest (GitHub-hosted). El label [self-hosted, ts] dejó los
 # jobs en queued durante horas (p. ej. run 35818279495, 2026-09-23) porque no
@@ -64,12 +66,6 @@ jobs:
 
       - name: Lint
         run: pnpm run lint
-
-      - name: Audit production dependencies
-        # Informativo: Next.js 16 + transitivas pueden reportar advisories
-        # que no aplican a este SaaS. No se hace gate para no forzar bumps.
-        continue-on-error: true
-        run: pnpm audit --prod --audit-level=high
 
   test:
     name: test
@@ -163,7 +159,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: next-build
 
@@ -192,8 +188,13 @@ jobs:
 
       - name: Lint GitHub Actions with actionlint
         run: |
-          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash | bash
-          ./actionlint -color -config-file actionlint.yaml
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          (
+            cd "$tmpdir"
+            curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash | bash
+          )
+          "$tmpdir/actionlint" -color -config-file actionlint.yaml
         shell: bash
 
       - name: Audit workflows with zizmor
@@ -202,3 +203,115 @@ jobs:
           inputs: .github/workflows/
           advanced-security: false
           annotations: false
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Binario gitleaks (no la action de pago). Checksum release v8.30.1.
+      - name: gitleaks
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks detect --source . --config .gitleaks.toml --redact --verbose
+
+  sca:
+    name: sca
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Native audit (pnpm)
+        run: pnpm audit --audit-level=high
+
+      # Binario osv-scanner v1.9.0 (no flag --severity en esta versión).
+      # Fallamos solo si hay HIGH/CRITICAL en database_specific.severity.
+      - name: OSV-Scanner (high/critical only)
+        run: |
+          set -euo pipefail
+          curl -sSfL -o osv-scanner https://github.com/google/osv-scanner/releases/download/v1.9.0/osv-scanner_linux_amd64
+          echo "d9c1deedc23372a25049458e1e2f2bb9ad4098e2e2038118b9fec42f28f93ffb  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          set +e
+          ./osv-scanner --lockfile=pnpm-lock.yaml --format=json --output=osv-results.json
+          osv_exit=$?
+          set -e
+          if [[ ! -f osv-results.json ]]; then
+            echo "::error::OSV-Scanner no generó osv-results.json (exit ${osv_exit})"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          import sys
+          data = json.load(open("osv-results.json", encoding="utf-8"))
+          bad = []
+          for result in data.get("results", []):
+              for pkg in result.get("packages", []):
+                  name = (pkg.get("package") or {}).get("name", "?")
+                  version = (pkg.get("package") or {}).get("version", "?")
+                  for vuln in pkg.get("vulnerabilities", []):
+                      sev = (vuln.get("database_specific") or {}).get("severity")
+                      if sev in ("HIGH", "CRITICAL"):
+                          bad.append(f"{sev} {vuln.get('id')} {name}@{version}")
+          if bad:
+              print("OSV high/critical findings:")
+              for line in bad:
+                  print(f"  - {line}")
+              sys.exit(1)
+          print("OSV: 0 high/critical (medium/low ignored by gate)")
+          PY
+
+  ci-gate:
+    name: ci-gate
+    needs: [quality, test, build, smoke, security, secrets, sca]
+    if: always()
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluar needs y hold
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          ALLOWED_SKIPS: ""
+          HOLD: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'hold') }}
+        run: |
+          set -euo pipefail
+          if [[ "${HOLD}" == "true" ]]; then
+            echo "::error::PR con etiqueta hold: ci-gate falla a propósito (quita hold para auto-merge)."
+            exit 1
+          fi
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          fi
+          echo "$NEEDS_JSON" | jq -e --argjson skips "$(printf '%s\n' "${ALLOWED_SKIPS}" | jq -R 'split(" ") | map(select(length>0))')" '
+            to_entries
+            | map(select(.value.result != "success" and ((.key as $k | $skips | index($k)) | not)))
+            | if length == 0 then true else
+                error("ci-gate: jobs no success: " + (map(.key + "=" + .value.result) | join(", ")))
+              end
+          ' >/dev/null
