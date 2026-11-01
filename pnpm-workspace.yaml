@@ -27,3 +27,6 @@ overrides:
   "mysql2": "3.23.1"
   # GHSA-ggr8-5vv4-36mx; major transitiva admitida por Prisma 7.10
   "deepmerge-ts": "8.0.0"
+  # GHSA-g3hv-75wg-m249 (minimatch <11.0.1) y GHSA-3g3m-2fjr-6pw4 (glob <=14.0.1)
+  "minimatch@10": "11.0.1"
+  "glob@13": "14.0.2"
