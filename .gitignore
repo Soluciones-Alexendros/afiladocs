@@ -48,3 +48,10 @@ build.log
 .claude/cache/
 .claude/history/
 .claude/scheduled_tasks.lock
+
+# Cachés y stores locales de pnpm / cursor (no son fuentes)
+.cache/
+.cursor/hooks/
+.npmrc.local
+.pnpm-home/
+.pnpm-store/
